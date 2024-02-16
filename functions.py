@@ -269,7 +269,7 @@ def show_journal(name):
                             row["oggetto"] == "Carta, Bancomat"):
                         pagati_row_voucher = f"""Giorno {row['data']} 
                                                 ore {row['ore']} 
-                                                pagato {row['pagati'].strip("-")} 
+                                                pagato {str(row['pagati']).strip("-")} 
                                                 euro con {row['oggetto'].lower()}.
                                                 Totale: {row["totale"]}
                                                 """
@@ -277,7 +277,7 @@ def show_journal(name):
                     else:
                         pagati_row_cash = f"""Giorno {row['data']} 
                                               ore {row['ore']} 
-                                              pagato {row['pagati'].strip("-")} 
+                                              pagato {str(row['pagati']).strip("-")} 
                                               euro in contanti. 
                                               Totale: {row['totale']}
                                               """
