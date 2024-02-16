@@ -5,9 +5,15 @@ from google.cloud import storage
 from datetime import datetime
 import json
 
-conn = st.connection("gcs", type=FilesConnection)
+
 credentials = dict(st.secrets.google.cloud.storage.credentials)
 credentials = json.dumps(credentials)
+
+
+def read_file(filename):
+    conn = st.connection("gcs", type=FilesConnection)
+    file = conn.read(filename, input_format="csv", ttl=600)
+    return file
 
 
 def upload_file(filename, data):
@@ -33,12 +39,10 @@ def float_format(number):
 
 
 def update_debt_list(name, amount, username):
-    lista_tabacchi = conn.read("bartabacchi_website/lista/"
-                               "lista_debiti_tabacchi.csv",
-                               input_format="csv", ttl=3)
-    lista_mirko = conn.read("bartabacchi_website/lista/"
-                            "lista_debiti_mirko.csv",
-                            input_format="csv", ttl=3)
+    lista_tabacchi = read_file("bartabacchi_website/lista/"
+                               "lista_debiti_tabacchi.csv")
+    lista_mirko = read_file("bartabacchi_website/lista/"
+                            "lista_debiti_mirko.csv")
     total = amount
     if name in lista_tabacchi["nome"].unique():
         row_number = (lista_tabacchi.index.get_loc
@@ -67,9 +71,6 @@ def update_debt_list(name, amount, username):
                        "ha superato il limite!")
     elif username == "mirko":
         if name in lista_tabacchi["nome"].unique():
-            lista_tabacchi = conn.read("bartabacchi_website/lista/"
-                                       "lista_debiti_tabacchi.csv",
-                                       input_format="csv", ttl=3)
             row_number = (lista_tabacchi.index.get_loc
                           (lista_tabacchi[lista_tabacchi["nome"] == name]
                            .index[0]))
@@ -89,8 +90,7 @@ def debt_journal(name, amount, object, date, hour, current_total):
         debt_list = pd.DataFrame(columns=["debiti", "pagati", "oggetto",
                                           "data", "ore", "totale"])
         upload_file(f"nomi/{name}.csv", debt_list)
-    debt_list = conn.read(f"bartabacchi_website/nomi/{name}.csv",
-                          input_format="csv", ttl=3)
+    debt_list = read_file(f"bartabacchi_website/nomi/{name}.csv")
     if amount > 0:
         debt_list.loc[-1] = [amount, " ", object, date,
                              hour, current_total]
@@ -101,17 +101,16 @@ def debt_journal(name, amount, object, date, hour, current_total):
 
 
 def check_blacklist(name):
-    blacklist = conn.read("bartabacchi_website/lista/lista_nera.csv")
+    blacklist = read_file("bartabacchi_website/lista/lista_nera.csv")
     name = name.lower()
     if name in blacklist["nome"].unique():
         st.warning("Attenzione!!! Questo soggetto è nella lista nera.")
 
 
 def add_blacklist(name):
-    blacklist = conn.read("bartabacchi_website/lista/lista_nera.csv")
-    lista_tabacchi = conn.read("bartabacchi_website/lista/"
-                               "lista_debiti_tabacchi.csv",
-                               input_format="csv", ttl=3)
+    blacklist = read_file("bartabacchi_website/lista/lista_nera.csv")
+    lista_tabacchi = read_file("bartabacchi_website/lista/"
+                               "lista_debiti_tabacchi.csv")
     name = name.lower()
     row_number = (lista_tabacchi.index.get_loc
                   (lista_tabacchi[lista_tabacchi["nome"] == name]
@@ -123,8 +122,7 @@ def add_blacklist(name):
 
 
 def add_name(name, username):
-    name_list = conn.read("bartabacchi_website/lista/name_list.csv",
-                          input_format="csv", ttl=3)
+    name_list = read_file("bartabacchi_website/lista/name_list.csv")
     if not (name in name_list["nome"].unique()):
         if username == "mirko":
             name_list.loc[-1] = [name, "m"]
@@ -136,7 +134,7 @@ def add_name(name, username):
 
 
 def add_debt_current(filename, name, amount, object, hour):
-    debt_list = conn.read(f"bartabacchi_website/{filename}", input_format="csv", ttl=3)
+    debt_list = read_file(f"bartabacchi_website/{filename}")
     if amount > 0:
         debt_list.loc[-1] = [name, float_format(amount), " ", object, hour]
     else:
@@ -148,8 +146,7 @@ def add_debt_current(filename, name, amount, object, hour):
 
 def show_debt(filename):
     if check_file_exists(filename):
-        debt_list = conn.read(f"bartabacchi_website/{filename}",
-                              input_format="csv", ttl=3)
+        debt_list = read_file(f"bartabacchi_website/{filename}")
         if not debt_list.empty:
             height = (len(debt_list) + 1) * 35 + 3
             st.dataframe(debt_list,
@@ -170,8 +167,7 @@ def show_debt(filename):
 
 def show_debt_mirko(filename):
     if check_file_exists(filename):
-        debt_list = conn.read(f"bartabacchi_website/{filename}",
-                              input_format="csv", ttl=3)
+        debt_list = read_file(f"bartabacchi_website/{filename}")
         if not debt_list.empty:
             height = (len(debt_list) + 1) * 35 + 3
             debt_list = debt_list.drop(columns="oggetto", axis=1)
@@ -191,8 +187,7 @@ def show_debt_mirko(filename):
 
 
 def total_debt(filename):
-    debt_list = conn.read(f"bartabacchi_website/{filename}",
-                          input_format="csv", ttl=3)
+    debt_list = read_file(f"bartabacchi_website/{filename}")
     total_amount = 0
     total_payement = 0
     total_calcio = 0
@@ -221,8 +216,7 @@ def total_debt(filename):
 
 
 def total_debt_mirko(filename):
-    debt_list = conn.read(f"bartabacchi_website/{filename}",
-                          input_format="csv", ttl=3)
+    debt_list = read_file(f"bartabacchi_website/{filename}")
     total_amount = 0
     total_payement = 0
     for index, row in debt_list.iterrows():
@@ -235,10 +229,8 @@ def total_debt_mirko(filename):
 
 
 def change_limit(edited_name, edited_value):
-    lista_tabacchi = conn.read("bartabacchi_website/lista/lista_debiti_tabacchi.csv",
-                               input_format="csv", ttl=3)
-    lista_mirko = conn.read("bartabacchi_website/lista/lista_debiti_mirko.csv",
-                            input_format="csv", ttl=3)
+    lista_tabacchi = read_file("bartabacchi_website/lista/lista_debiti_tabacchi.csv")
+    lista_mirko = read_file("bartabacchi_website/lista/lista_debiti_mirko.csv")
     row_number = lista_tabacchi.index.get_loc(lista_tabacchi[lista_tabacchi["nome"] == edited_name].index[0])
     lista_tabacchi.at[row_number, "limite"] = edited_value
     upload_file("lista/lista_debiti_tabacchi.csv", lista_tabacchi)
@@ -252,8 +244,7 @@ def change_limit(edited_name, edited_value):
 def show_journal(name):
     name = name.lower()
     if check_file_exists(f"nomi/{name}.csv"):
-        journal = conn.read(f"bartabacchi_website/nomi/{name}.csv",
-                            input_format="csv", ttl=3)
+        journal = read_file(f"bartabacchi_website/nomi/{name}.csv")
         if not journal.empty:
             for index, row in journal.iterrows():
                 if row["debiti"] != " ":
@@ -312,8 +303,7 @@ def current_page_tabacchi():
     with st.form(key="add_debt", clear_on_submit=True, border=False):
         row2 = st.columns(4)
         with row2[0]:
-            name_list = conn.read("bartabacchi_website/lista/name_list.csv",
-                                  input_format="csv", ttl=3)
+            name_list = read_file("bartabacchi_website/lista/name_list.csv")
             name_list = name_list.sort_values(by=["nome"])
             name = st.selectbox("Nome",
                                 name_list["nome"].apply(lambda x: x.capitalize()),
@@ -322,8 +312,7 @@ def current_page_tabacchi():
         with row2[1]:
             debiti = st.number_input("Debiti", value=None)
         with row2[2]:
-            object_list = conn.read("bartabacchi_website/lista/oggetto.csv",
-                                    input_format="csv", ttl=3)
+            object_list = read_file("bartabacchi_website/lista/oggetto.csv")
             oggetto = st.selectbox("Oggetto", object_list,
                                    placeholder="Seleziona",
                                    index=None)
@@ -383,8 +372,7 @@ def current_page_tabacchi():
 
 def show_page_debt_tabacchi():
     st.title("Debiti")
-    lista = conn.read("bartabacchi_website/lista/lista_debiti_tabacchi.csv",
-                      input_format="csv", ttl=3)
+    lista = read_file("bartabacchi_website/lista/lista_debiti_tabacchi.csv")
     lista = lista.drop(lista[lista.totale == 0].index)
     lista = lista.sort_values(by=["nome"], ignore_index=True)
     lista["nome"] = lista["nome"].apply(lambda x: x.capitalize())
@@ -412,8 +400,7 @@ def show_page_debt_tabacchi():
 
 def debt_journal_page():
     st.title("Diario debiti")
-    name_list = conn.read("bartabacchi_website/lista/name_list.csv",
-                          input_format="csv", ttl=3)
+    name_list = read_file("bartabacchi_website/lista/name_list.csv")
     name_list = name_list.sort_values(by=["nome"])
     name = st.selectbox("Nome", name_list["nome"].apply(
         lambda x: x.capitalize()),
@@ -448,8 +435,7 @@ def current_page_mirko():
     with (st.form(key="add_debt", clear_on_submit=True, border=False)):
         row2 = st.columns(4)
         with row2[0]:
-            name_list = conn.read("bartabacchi_website/lista/name_list.csv",
-                                  input_format="csv", ttl=3)
+            name_list = read_file("bartabacchi_website/lista/name_list.csv")
             name_list = name_list.sort_values(by=["nome"])
             name = st.selectbox("Nome",
                                 name_list["nome"].apply(lambda x: x.capitalize()),
@@ -505,8 +491,7 @@ def current_page_mirko():
 
 def show_page_debt_mirko():
     st.title("Debiti")
-    lista = conn.read("bartabacchi_website/lista/lista_debiti_mirko.csv",
-                      input_format="csv", ttl=3)
+    lista = read_file("bartabacchi_website/lista/lista_debiti_mirko.csv")
     lista = lista.drop(lista[lista.totale == 0].index)
     lista = lista.sort_values(by=["nome"], ignore_index=True)
     lista["nome"] = lista["nome"].apply(lambda x: x.capitalize())
