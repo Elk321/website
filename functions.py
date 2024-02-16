@@ -32,7 +32,7 @@ def float_format(number):
         return "{:.2f}".format(number).replace(".", ",")
 
 
-def update_debt_list(name, amount):
+def update_debt_list(name, amount, username):
     lista_tabacchi = conn.read("bartabacchi_website/lista/"
                                "lista_debiti_tabacchi.csv",
                                input_format="csv", ttl=3)
@@ -61,11 +61,25 @@ def update_debt_list(name, amount):
                       (lista_mirko[lista_mirko["nome"] == name]
                        .index[0]))
         lista_mirko.at[row_number, "totale"] += amount
-        upload_file("lista/lista_mirko.csv", lista_mirko)
         if (lista_mirko.at[row_number, "totale"] >
                 lista_mirko.at[row_number, "limite"]):
             st.warning("Attenzione! Questo soggetto "
                        "ha superato il limite!")
+    elif username == "mirko":
+        if name in lista_tabacchi["nome"].unique():
+            lista_tabacchi = conn.read("bartabacchi_website/lista/"
+                                       "lista_debiti_tabacchi.csv",
+                                       input_format="csv", ttl=3)
+            row_number = (lista_tabacchi.index.get_loc
+                          (lista_tabacchi[lista_tabacchi["nome"] == name]
+                           .index[0]))
+            amount = lista_tabacchi.at[row_number, "totale"]
+            limite = lista_tabacchi.at[row_number, "limite"]
+            lista_mirko.loc[-1] = [name, amount, limite]
+        else:
+            lista_mirko.loc[-1] = [name, amount, " "]
+
+        upload_file("lista/lista_mirko.csv", lista_mirko)
 
     return total
 
@@ -74,7 +88,7 @@ def debt_journal(name, amount, object, date, hour, current_total):
     if not check_file_exists(f"nomi/{name}.csv"):
         debt_list = pd.DataFrame(columns=["debiti", "pagati", "oggetto",
                                           "data", "ore", "totale"])
-        debt_list.to_csv(f"nomi/{name}.csv", index=False)
+        upload_file(f"nomi/{name}.csv", debt_list)
     debt_list = conn.read(f"bartabacchi_website/nomi/{name}.csv",
                           input_format="csv", ttl=3)
     if amount > 0:
@@ -331,7 +345,7 @@ def current_page_tabacchi():
 
                 if str(date) == current_date:
                     time = now.strftime("%H:%M")
-                    total = update_debt_list(name.lower(), debiti)
+                    total = update_debt_list(name.lower(), debiti, "tabacchi")
                     debt_journal(name.lower(), debiti, oggetto, current_date, time, total)
                 else:
                     time = " "
@@ -458,7 +472,7 @@ def current_page_mirko():
 
                 if str(date) == current_date:
                     time = now.strftime("%H:%M")
-                    total = update_debt_list(name.lower(), debiti)
+                    total = update_debt_list(name.lower(), debiti, "mirko")
                     debt_journal(name.lower(), debiti, " ", current_date, time, total)
                 else:
                     time = " "
