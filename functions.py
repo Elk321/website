@@ -10,7 +10,7 @@ credentials = json.dumps(credentials)
 
 
 def read_file(filename):
-    conn = st.connection("gcs", type=FilesConnection, ttl=5)
+    conn = st.connection("gcs", type=FilesConnection, ttl=0)
     file = conn.read(f"bartabacchi_website/{filename}")
     return file
 
