@@ -1,21 +1,17 @@
 import streamlit as st
-# from st_files_connection import FilesConnection
+from st_files_connection import FilesConnection
 import pandas as pd
 from google.cloud import storage
 from datetime import datetime
 import json
-
 
 credentials = dict(st.secrets.google.cloud.storage.credentials)
 credentials = json.dumps(credentials)
 
 
 def read_file(filename):
-    storage_client = storage.Client(credentials)
-    bucket = storage_client.get_bucket("bartabacchi_website")
-    blob = bucket.blob(filename)
-    with blob.open('rb') as file:
-        file = pd.read_csv(file)
+    conn = st.connection("gcs", type=FilesConnection, ttl=5)
+    file = conn.read(f"bartabacchi_website/{filename}")
     return file
 
 
@@ -51,10 +47,11 @@ def update_debt_list(name, amount, username):
                        .index[0]))
         lista_tabacchi.at[row_number, "totale"] += amount
         total = lista_tabacchi.at[row_number, "totale"]
-        if (lista_tabacchi.at[row_number, "totale"] >
-                lista_tabacchi.at[row_number, "limite"]):
-            st.warning("Attenzione! Questo soggetto ha "
-                       "superato il limite!")
+        if lista_tabacchi.at[row_number, "limite"]:
+            if (lista_tabacchi.at[row_number, "totale"] >
+                    lista_tabacchi.at[row_number, "limite"]):
+                st.warning("Attenzione! Questo soggetto ha "
+                           "superato il limite!")
     else:
         lista_tabacchi.loc[-1] = [name, amount, " "]
 
@@ -66,10 +63,11 @@ def update_debt_list(name, amount, username):
                       (lista_mirko[lista_mirko["nome"] == name]
                        .index[0]))
         lista_mirko.at[row_number, "totale"] += amount
-        if (lista_mirko.at[row_number, "totale"] >
-                lista_mirko.at[row_number, "limite"]):
-            st.warning("Attenzione! Questo soggetto "
-                       "ha superato il limite!")
+        if lista_mirko.at[row_number, "limite"]:
+            if (lista_mirko.at[row_number, "totale"] >
+                    lista_mirko.at[row_number, "limite"]):
+                st.warning("Attenzione! Questo soggetto "
+                           "ha superato il limite!")
     elif username == "mirko":
         if name in lista_tabacchi["nome"].unique():
             row_number = (lista_tabacchi.index.get_loc
@@ -129,6 +127,7 @@ def add_name(name, username):
 
         else:
             name_list.loc[-1] = [name, " "]
+    name_list = name_list.sort_values(by=["nome"])
     upload_file("lista/name_list.csv", name_list)
     st.rerun()
 
