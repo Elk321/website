@@ -1,5 +1,5 @@
 import streamlit as st
-from st_files_connection import FilesConnection
+# from st_files_connection import FilesConnection
 import pandas as pd
 from google.cloud import storage
 from datetime import datetime
@@ -11,8 +11,11 @@ credentials = json.dumps(credentials)
 
 
 def read_file(filename):
-    conn = st.connection("gcs", type=FilesConnection)
-    file = conn.read(filename, input_format="csv", ttl=600)
+    storage_client = storage.Client(credentials)
+    bucket = storage_client.get_bucket("bartabacchi_website")
+    blob = bucket.blob(filename)
+    with blob.open('rb') as file:
+        file = pd.read_csv(file)
     return file
 
 
