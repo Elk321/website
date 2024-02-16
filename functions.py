@@ -132,6 +132,7 @@ def add_name(name, username):
         else:
             name_list.loc[-1] = [name, " "]
     upload_file("lista/name_list.csv", name_list)
+    st.rerun()
 
 
 def add_debt_current(filename, name, amount, object, hour):
@@ -357,6 +358,7 @@ def current_page_tabacchi():
                                  object=oggetto,
                                  hour=time)
                 st.success("Aggiunto!")
+                st.rerun()
 
     show_debt(f"date/tabacchi/{date}.csv")
     st.subheader(" ")
@@ -484,6 +486,7 @@ def current_page_mirko():
                                  object=" ",
                                  hour=time)
                 st.success("Aggiunto!")
+                st.rerun()
 
         show_debt_mirko(f"date/mirko/{date}.csv")
         st.subheader(" ")
