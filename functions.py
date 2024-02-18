@@ -52,8 +52,9 @@ def update_debt_list(name, amount, username, lista_tabacchi):
                            "superato il limite!")
     else:
         lista_tabacchi.loc[len(lista_tabacchi)] = [name, amount, " "]
-        upload_file("lista/lista_debiti_tabacchi.csv",
-                    lista_tabacchi)
+
+    upload_file("lista/lista_debiti_tabacchi.csv",
+                lista_tabacchi)
 
     return total, lista_tabacchi
 
