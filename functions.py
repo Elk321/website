@@ -9,8 +9,9 @@ credentials = dict(st.secrets.google.cloud.storage.credentials)
 credentials = json.dumps(credentials)
 
 
+@st.cache_resource
 def read_file(filename):
-    conn = st.connection("gcs", type=FilesConnection, ttl=0)
+    conn = st.connection("gcs", type=FilesConnection)
     file = conn.read(f"bartabacchi_website/{filename}")
     return file
 
@@ -37,9 +38,7 @@ def float_format(number):
         return "{:.2f}".format(number).replace(".", ",")
 
 
-def update_debt_list(name, amount, username):
-    lista_tabacchi = read_file("lista/lista_debiti_tabacchi.csv")
-    lista_mirko = read_file("lista/lista_debiti_mirko.csv")
+def update_debt_list(name, amount, username, lista_tabacchi):
     total = amount
     if name in lista_tabacchi["nome"].unique():
         row_number = (lista_tabacchi.index.get_loc
@@ -53,100 +52,87 @@ def update_debt_list(name, amount, username):
                 st.warning("Attenzione! Questo soggetto ha "
                            "superato il limite!")
     else:
-        lista_tabacchi.loc[-1] = [name, amount, " "]
+        lista_tabacchi.loc[len(lista_tabacchi)] = [name, amount, " "]
 
     upload_file("lista/lista_debiti_tabacchi.csv",
                 lista_tabacchi)
 
-    if name in lista_mirko["nome"].unique():
-        row_number = (lista_mirko.index.get_loc
-                      (lista_mirko[lista_mirko["nome"] == name]
-                       .index[0]))
-        lista_mirko.at[row_number, "totale"] += amount
-        if lista_mirko.at[row_number, "limite"]:
-            if (lista_mirko.at[row_number, "totale"] >
-                    lista_mirko.at[row_number, "limite"]):
-                st.warning("Attenzione! Questo soggetto "
-                           "ha superato il limite!")
-    elif username == "mirko":
-        if name in lista_tabacchi["nome"].unique():
-            row_number = (lista_tabacchi.index.get_loc
-                          (lista_tabacchi[lista_tabacchi["nome"] == name]
-                           .index[0]))
-            amount = lista_tabacchi.at[row_number, "totale"]
-            limite = lista_tabacchi.at[row_number, "limite"]
-            lista_mirko.loc[-1] = [name, amount, limite]
-        else:
-            lista_mirko.loc[-1] = [name, amount, " "]
-
-        upload_file("lista/lista_mirko.csv", lista_mirko)
-
-    return total
+    return total, lista_tabacchi
 
 
 def debt_journal(name, amount, object, date, hour, current_total):
     if not check_file_exists(f"nomi/{name}.csv"):
         debt_list = pd.DataFrame(columns=["debiti", "pagati", "oggetto",
                                           "data", "ore", "totale"])
-        upload_file(f"nomi/{name}.csv", debt_list)
-    debt_list = read_file(f"nomi/{name}.csv")
-    if amount > 0:
-        debt_list.loc[-1] = [amount, " ", object, date,
-                             hour, current_total]
     else:
-        debt_list.loc[-1] = [" ", amount, object, date,
-                             hour, current_total]
+        debt_list = read_file(f"nomi/{name}.csv")
+
+    if amount > 0:
+        debt_list.loc[len(debt_list)] = [amount, " ", object, date,
+                                         hour, current_total]
+    else:
+        debt_list.loc[len(debt_list)] = [" ", amount, object, date,
+                                         hour, current_total]
     upload_file(f"nomi/{name}.csv", debt_list)
 
 
-def check_blacklist(name):
-    blacklist = read_file("lista/lista_nera.csv")
+def check_blacklist(name, blacklist):
     name = name.lower()
     if name in blacklist["nome"].unique():
         st.warning("Attenzione!!! Questo soggetto è nella lista nera.")
 
 
-def add_blacklist(name):
-    blacklist = read_file("lista/lista_nera.csv")
-    lista_tabacchi = read_file("lista/lista_debiti_tabacchi.csv")
+def add_blacklist(name, blacklist, lista_tabacchi):
     name = name.lower()
     row_number = (lista_tabacchi.index.get_loc
                   (lista_tabacchi[lista_tabacchi["nome"] == name]
                    .index[0]))
     limite = lista_tabacchi.at[row_number, "limite"]
     if limite == 0:
-        blacklist.loc[-1] = name
+        blacklist.loc[len(blacklist)] = name
     upload_file("lista/lista_nera.csv", blacklist)
+    return blacklist
 
 
-def add_name(name, username):
-    name_list = read_file("lista/name_list.csv")
+def add_name(name, name_list):
     if not (name in name_list["nome"].unique()):
-        if username == "mirko":
-            name_list.loc[-1] = [name, "m"]
+        name_list.loc[len(name_list)] = name
 
-        else:
-            name_list.loc[-1] = [name, " "]
     name_list = name_list.sort_values(by=["nome"])
     upload_file("lista/name_list.csv", name_list)
-    st.rerun()
+    return name_list
 
 
-def add_debt_current(filename, name, amount, object, hour):
-    debt_list = read_file(filename)
+def add_debt_current(debt_list, name, amount, object, hour, filename):
     if amount > 0:
-        debt_list.loc[-1] = [name, float_format(amount), " ", object, hour]
+        debt_list.loc[len(debt_list)] = [name, float_format(amount), " ", object, hour]
     else:
         if not object:
             object = " "
-        debt_list.loc[-1] = [name, " ", float_format(amount), object, hour]
+        debt_list.loc[len(debt_list)] = [name, " ", float_format(amount), object, hour]
     upload_file(filename, debt_list)
+    return debt_list
 
 
-def show_debt(filename):
-    if check_file_exists(filename):
-        debt_list = read_file(filename)
+def show_debt(filename, current_list, debt_list):
+    if filename == current_list:
         if not debt_list.empty:
+            height = (len(debt_list) + 1) * 35 + 3
+            st.dataframe(debt_list,
+                         hide_index=True,
+                         column_config={
+                             "nome": "Nome",
+                             "debiti": "Debiti",
+                             "pagati": "Pagati",
+                             "oggetto": "Oggetto",
+                             "ore": "Orario"
+                         },
+                         width=2000, height=height)
+        else:
+            st.warning("No data available.")
+    elif check_file_exists(filename):
+        debt_list = read_file(filename)
+        if debt_list.empty:
             height = (len(debt_list) + 1) * 35 + 3
             st.dataframe(debt_list,
                          hide_index=True,
@@ -164,29 +150,9 @@ def show_debt(filename):
         st.warning("No data available.")
 
 
-def show_debt_mirko(filename):
-    if check_file_exists(filename):
+def total_debt(filename, current_list, debt_list):
+    if filename != current_list:
         debt_list = read_file(filename)
-        if not debt_list.empty:
-            height = (len(debt_list) + 1) * 35 + 3
-            debt_list = debt_list.drop(columns="oggetto", axis=1)
-            st.dataframe(debt_list,
-                         hide_index=True,
-                         column_config={
-                             "nome": "Nome",
-                             "debiti": "Debiti",
-                             "pagati": "Pagati",
-                             "ore": "Orario"
-                         },
-                         width=2000, height=height)
-        else:
-            st.warning("No data available.")
-    else:
-        st.warning("No data available.")
-
-
-def total_debt(filename):
-    debt_list = read_file(filename)
     total_amount = 0
     total_payement = 0
     total_calcio = 0
@@ -214,30 +180,11 @@ def total_debt(filename):
             float_format(total_carta))
 
 
-def total_debt_mirko(filename):
-    debt_list = read_file(filename)
-    total_amount = 0
-    total_payement = 0
-    for index, row in debt_list.iterrows():
-        if row['debiti'] != " ":
-            total_amount += float(row['debiti'].replace(",", "."))
-        if row['pagati'] != " ":
-            total_payement += float(row['pagati'].replace(",", "."))
-
-        return float_format(total_amount), float_format(total_payement)
-
-
-def change_limit(edited_name, edited_value):
-    lista_tabacchi = read_file("lista/lista_debiti_tabacchi.csv")
-    lista_mirko = read_file("lista/lista_debiti_mirko.csv")
+def change_limit(edited_name, edited_value, lista_tabacchi):
     row_number = lista_tabacchi.index.get_loc(lista_tabacchi[lista_tabacchi["nome"] == edited_name].index[0])
     lista_tabacchi.at[row_number, "limite"] = edited_value
     upload_file("lista/lista_debiti_tabacchi.csv", lista_tabacchi)
-
-    if edited_name in lista_mirko["nome"].unique():
-        row_number = lista_mirko.index.get_loc(lista_mirko[lista_mirko["nome"] == edited_name].index[0])
-        lista_mirko.at[row_number, "limite"] = edited_value
-        upload_file("lista/lista_debiti_mirko.csv", lista_mirko)
+    return lista_tabacchi
 
 
 def show_journal(name):
@@ -278,7 +225,7 @@ def show_journal(name):
         st.warning("No data available.")
 
 
-def current_page_tabacchi():
+def current_page_tabacchi(name_list, object_list, lista_tabacchi, blacklist, debt_list, current_date):
     date = st.date_input("Data", format="DD/MM/YYYY", key="date")
     with st.expander("Nuovo nome"):
         st.write("Aggiungere il nome se non è presente nella lista:")
@@ -296,13 +243,12 @@ def current_page_tabacchi():
                 st.subheader("")
                 button1 = st.form_submit_button("Aggiungi")
                 if button1:
-                    add_name(new_name, "tabacchi")
+                    name_list = add_name(new_name, name_list)
                     st.rerun()
 
     with st.form(key="add_debt", clear_on_submit=True, border=False):
         row2 = st.columns(4)
         with row2[0]:
-            name_list = read_file("lista/name_list.csv")
             name_list = name_list.sort_values(by=["nome"])
             name = st.selectbox("Nome",
                                 name_list["nome"].apply(lambda x: x.capitalize()),
@@ -311,7 +257,6 @@ def current_page_tabacchi():
         with row2[1]:
             debiti = st.number_input("Debiti", value=None)
         with row2[2]:
-            object_list = read_file("lista/oggetto.csv")
             oggetto = st.selectbox("Oggetto", object_list,
                                    placeholder="Seleziona",
                                    index=None)
@@ -325,35 +270,30 @@ def current_page_tabacchi():
                                  oggetto == "Carta, Bancomat" or not oggetto):
                 st.warning("Inserire l'oggetto corretto.")
             else:
-                if not check_file_exists(f"date/tabacchi/{date}.csv"):
-                    debt_list = pd.DataFrame(columns=["nome", "debiti", "pagati", "oggetto", "ore"])
-                    upload_file(f"date/tabacchi/{date}.csv", debt_list)
-
                 now = datetime.now()
-                current_date = now.strftime("%Y-%m-%d")
-
                 if str(date) == current_date:
                     time = now.strftime("%H:%M")
-                    total = update_debt_list(name.lower(), debiti, "tabacchi")
+                    total, lista_tabacchi = update_debt_list(name.lower(), debiti, "tabacchi", lista_tabacchi)
                     debt_journal(name.lower(), debiti, oggetto, current_date, time, total)
-                else:
-                    time = " "
+                    check_blacklist(name, blacklist)
+                    debt_list = add_debt_current(debt_list,
+                                                 name=name,
+                                                 amount=debiti,
+                                                 object=oggetto,
+                                                 hour=time,
+                                                 filename=f"date/tabacchi/{current_date}.csv")
+                    st.success("Aggiunto!")
+                    st.rerun()
 
-                check_blacklist(name)
-                add_debt_current(f"date/tabacchi/{date}.csv",
-                                 name=name,
-                                 amount=debiti,
-                                 object=oggetto,
-                                 hour=time)
-                st.success("Aggiunto!")
-                st.rerun()
-
-    show_debt(f"date/tabacchi/{date}.csv")
+    show_debt(f"date/tabacchi/{date}.csv",
+              f"date/tabacchi/{current_date}.csv",
+              debt_list=debt_list)
     st.subheader(" ")
     try:
         (total_amount, total_payement,
          total_calcio, total_voucher, debt_cash, total_carta) = (
-            total_debt(f"date/tabacchi/{date}.csv"))
+            total_debt(f"date/tabacchi/{date}.csv",
+                       f"date/tabacchi/{current_date}.csv", debt_list))
         st.write("<b>Totale debiti:</b>", total_amount,
                  f"(di cui {total_calcio} scommesse calcio)",
                  unsafe_allow_html=True)
@@ -368,15 +308,16 @@ def current_page_tabacchi():
     except (TypeError, FileNotFoundError):
         pass
 
+    return lista_tabacchi
 
-def show_page_debt_tabacchi():
+
+def show_page_debt_tabacchi(lista_tabacchi, blacklist):
     st.title("Debiti")
-    lista = read_file("lista/lista_debiti_tabacchi.csv")
-    lista = lista.drop(lista[lista.totale == 0].index)
-    lista = lista.sort_values(by=["nome"], ignore_index=True)
-    lista["nome"] = lista["nome"].apply(lambda x: x.capitalize())
-    height = (len(lista) + 1) * 35 + 3
-    lista = st.data_editor(lista, hide_index=True,
+    lista_tabacchi = lista_tabacchi.drop(lista_tabacchi[lista_tabacchi.totale == 0].index)
+    lista_tabacchi = lista_tabacchi.sort_values(by=["nome"], ignore_index=True)
+    lista_tabacchi["nome"] = lista_tabacchi["nome"].apply(lambda x: x.capitalize())
+    height = (len(lista_tabacchi) + 1) * 35 + 3
+    lista = st.data_editor(lista_tabacchi, hide_index=True,
                            width=2000, height=height,
                            column_config={
                                "nome": "Nome",
@@ -390,11 +331,13 @@ def show_page_debt_tabacchi():
     if edited_rows:
         edited_rows_number = list(edited_rows.keys())[0]
         edited_value = edited_rows[edited_rows_number]["limite"]
-        edited_name = lista.at[edited_rows_number, "nome"].lower()
-        change_limit(edited_name, edited_value)
-        add_blacklist(edited_name)
+        edited_name = lista_tabacchi.at[edited_rows_number, "nome"].lower()
+        lista_tabacchi = change_limit(edited_name, edited_value, lista_tabacchi)
+        blacklist = add_blacklist(edited_name, blacklist, lista_tabacchi)
         del st.session_state.table["edited_rows"][edited_rows_number]
         st.rerun()
+
+    return lista_tabacchi, blacklist
 
 
 def debt_journal_page():
@@ -408,99 +351,3 @@ def debt_journal_page():
     if name:
         st.subheader(name)
         show_journal(name)
-
-
-def current_page_mirko():
-    date = st.date_input("Data", format="DD/MM/YYYY", key="date")
-    with st.expander("Nuovo nome"):
-        st.write("Aggiungere il nome se non è presente nella lista:")
-        with st.form(key="add_name", clear_on_submit=True, border=False):
-            row1 = st.columns(2)
-            with row1[0]:
-                tip = """Attenzione!!!
-                    Aggiungere solo se il soggetto non è 
-                    presente nella lista.
-                    Controlla bene!!! Non aggiungere nomi diversi 
-                    per un singolo soggetto!"""
-                new_name = st.text_input("Nuovo nome",
-                                         help=tip)
-            with row1[1]:
-                st.subheader("")
-                button1 = st.form_submit_button("Aggiungi")
-                if button1:
-                    add_name(new_name, "tabacchi")
-                    st.rerun()
-
-    with (st.form(key="add_debt", clear_on_submit=True, border=False)):
-        row2 = st.columns(4)
-        with row2[0]:
-            name_list = read_file("lista/name_list.csv")
-            name_list = name_list.sort_values(by=["nome"])
-            name = st.selectbox("Nome",
-                                name_list["nome"].apply(lambda x: x.capitalize()),
-                                placeholder="Seleziona",
-                                index=None)
-        with row2[1]:
-            debiti = st.number_input("Debiti", value=None)
-
-        with row2[2]:
-            st.subheader(" ")
-            button2 = st.form_submit_button("Aggiungi")
-        if button2:
-            if not name or not debiti:
-                pass
-            else:
-                if not check_file_exists(f"date/mirko/{date}.csv"):
-                    debt_list = pd.DataFrame(columns=["nome", "debiti", "pagati", "oggetto", "ore"])
-                    upload_file(f"date/mirko/{date}.csv", debt_list)
-
-                now = datetime.now()
-                current_date = now.strftime("%Y-%m-%d")
-
-                if str(date) == current_date:
-                    time = now.strftime("%H:%M")
-                    total = update_debt_list(name.lower(), debiti, "mirko")
-                    debt_journal(name.lower(), debiti, " ", current_date, time, total)
-                else:
-                    time = " "
-
-                check_blacklist(name)
-                add_debt_current(f"date/mirko/{date}.csv",
-                                 name=name,
-                                 amount=debiti,
-                                 object=" ",
-                                 hour=time)
-                st.success("Aggiunto!")
-                st.rerun()
-
-        show_debt_mirko(f"date/mirko/{date}.csv")
-        st.subheader(" ")
-        try:
-            total_debt, total_payement = total_debt_mirko(f"date/mirko/"
-                                                          f"{date}.csv")
-            st.write(f"<b>Totale debiti:</b> {total_debt}",
-                     unsafe_allow_html=True)
-            st.write(f"<b>Totale debiti pagati:</b>"
-                     f"{total_payement.strip('-')}",
-                     unsafe_allow_html=True)
-
-        except (TypeError, FileNotFoundError):
-            pass
-
-
-def show_page_debt_mirko():
-    st.title("Debiti")
-    lista = read_file("lista/lista_debiti_mirko.csv")
-    lista = lista.drop(lista[lista.totale == 0].index)
-    lista = lista.sort_values(by=["nome"], ignore_index=True)
-    lista["nome"] = lista["nome"].apply(lambda x: x.capitalize())
-    height = (len(lista) + 1) * 35 + 3
-    lista = st.data_editor(lista, hide_index=True,
-                           width=2000, height=height,
-                           column_config={
-                               "nome": "Nome",
-                               "totale": st.column_config.NumberColumn
-                               ("Totale", format="%.2f"),
-                               "limite": "Limite"},
-                           key="table",
-                           disabled=True)

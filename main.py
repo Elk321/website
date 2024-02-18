@@ -3,6 +3,18 @@ from streamlit_option_menu import option_menu
 import locale
 from functions import *
 
+now = datetime.now()
+current_date = now.strftime("%Y-%m-%d")
+if not check_file_exists(f"date/tabacchi/{current_date}.csv"):
+    debt_list = pd.DataFrame(columns=["nome", "debiti", "pagati", "oggetto", "ore"])
+    upload_file(f"date/tabacchi/{current_date}.csv", debt_list)
+else:
+    debt_list = read_file(f"date/tabacchi/{current_date}.csv")
+lista_tabacchi = read_file("lista/lista_debiti_tabacchi.csv")
+name_list = read_file("lista/name_list.csv")
+object_list = read_file("lista/oggetto.csv")
+blacklist = read_file("lista/lista_nera.csv")
+
 
 hide_st_style = """
                 <style>
@@ -43,9 +55,9 @@ if st.session_state["authentication_status"]:
             icons=["pencil-fill", "table"],
             orientation="horizontal")
         if nav_menu == "Oggi":
-            current_page_mirko()
+            pass
         if nav_menu == "Totale debiti":
-            show_page_debt_mirko()
+            pass
 
     elif username == "tabacchi" or username == "ellen":
         st.sidebar.title("Conto: Tabacchi")
@@ -60,13 +72,15 @@ if st.session_state["authentication_status"]:
             icons=["pencil-fill", "table", "journal-text"],
             orientation="horizontal")
         if nav_menu == "Oggi":
-            current_page_tabacchi()
+            lista_tabacchi = current_page_tabacchi(name_list, object_list,
+                                                   lista_tabacchi, blacklist,
+                                                   debt_list, current_date)
         if nav_menu == "Totale debiti":
-            show_page_debt_tabacchi()
+            lista_tabacchi, blacklist = show_page_debt_tabacchi(lista_tabacchi, blacklist)
         if nav_menu == "Diario debiti":
             debt_journal_page()
         if nav_menu == "Debiti Mirko":
-            current_page_mirko()
+            pass
 
 elif st.session_state["authentication_status"] is False:
     st.error("Username/password sbagliato")
