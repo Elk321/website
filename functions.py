@@ -45,7 +45,7 @@ def update_debt_list(name, amount, username, lista_tabacchi):
                       (lista_tabacchi[lista_tabacchi["nome"] == name]
                        .index[0]))
         lista_tabacchi.at[row_number, "totale"] += amount
-        total = lista_tabacchi.at[row_number, "totale"]
+        total = round(lista_tabacchi.at[row_number, "totale"], 2)
         if lista_tabacchi.at[row_number, "limite"]:
             if total > float(lista_tabacchi.at[row_number, "limite"]):
                 st.warning("Attenzione! Questo soggetto ha "
@@ -53,6 +53,7 @@ def update_debt_list(name, amount, username, lista_tabacchi):
     else:
         lista_tabacchi.loc[len(lista_tabacchi)] = [name, amount, " "]
 
+    lista_tabacchi["totale"] = lista_tabacchi["totale"].round(decimals=2)
     upload_file("lista/lista_debiti_tabacchi.csv",
                 lista_tabacchi)
 
@@ -72,6 +73,7 @@ def debt_journal(name, amount, object, date, hour, current_total):
     else:
         debt_list.loc[len(debt_list)] = [" ", amount, object, date,
                                          hour, current_total]
+
     upload_file(f"nomi/{name}.csv", debt_list)
 
 
