@@ -53,9 +53,8 @@ def update_debt_list(name, amount, username, lista_tabacchi):
                            "superato il limite!")
     else:
         lista_tabacchi.loc[len(lista_tabacchi)] = [name, amount, " "]
-
-    upload_file("lista/lista_debiti_tabacchi.csv",
-                lista_tabacchi)
+        upload_file("lista/lista_debiti_tabacchi.csv",
+                    lista_tabacchi)
 
     return total, lista_tabacchi
 
@@ -244,7 +243,6 @@ def current_page_tabacchi(name_list, object_list, lista_tabacchi, blacklist, deb
                 button1 = st.form_submit_button("Aggiungi")
                 if button1:
                     name_list = add_name(new_name, name_list)
-                    st.rerun()
 
     with st.form(key="add_debt", clear_on_submit=True, border=False):
         row2 = st.columns(4)
@@ -283,7 +281,6 @@ def current_page_tabacchi(name_list, object_list, lista_tabacchi, blacklist, deb
                                                  hour=time,
                                                  filename=f"date/tabacchi/{current_date}.csv")
                     st.success("Aggiunto!")
-                    st.rerun()
 
     show_debt(f"date/tabacchi/{date}.csv",
               f"date/tabacchi/{current_date}.csv",
