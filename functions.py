@@ -47,7 +47,7 @@ def update_debt_list(name, amount, username, lista_tabacchi):
         lista_tabacchi.at[row_number, "totale"] += amount
         total = lista_tabacchi.at[row_number, "totale"]
         if lista_tabacchi.at[row_number, "limite"]:
-            if total > lista_tabacchi.at[row_number, "limite"]:
+            if total > float(lista_tabacchi.at[row_number, "limite"]):
                 st.warning("Attenzione! Questo soggetto ha "
                            "superato il limite!")
     else:
