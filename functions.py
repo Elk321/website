@@ -9,7 +9,7 @@ credentials = dict(st.secrets.google.cloud.storage.credentials)
 credentials = json.dumps(credentials)
 
 
-@st.cache_resource(ttl=600)
+@st.cache_resource()
 def read_file(filename):
     conn = st.connection("gcs", type=FilesConnection)
     file = conn.read(f"bartabacchi_website/{filename}")
@@ -53,7 +53,6 @@ def update_debt_list(name, amount, username, lista_tabacchi):
     else:
         lista_tabacchi.loc[len(lista_tabacchi)] = [name, amount, " "]
 
-    lista_tabacchi["totale"] = lista_tabacchi["totale"].round(decimals=2)
     upload_file("lista/lista_debiti_tabacchi.csv",
                 lista_tabacchi)
 
