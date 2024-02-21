@@ -3,13 +3,14 @@ from st_files_connection import FilesConnection
 import pandas as pd
 from google.cloud import storage
 from datetime import datetime
+import pytz
 import json
 
 credentials = dict(st.secrets.google.cloud.storage.credentials)
 credentials = json.dumps(credentials)
 
 
-@st.cache_resource()
+@st.cache_resource(ttl="1d")
 def read_file(filename):
     conn = st.connection("gcs", type=FilesConnection)
     file = conn.read(f"bartabacchi_website/{filename}")
@@ -269,7 +270,8 @@ def current_page_tabacchi(name_list, object_list, lista_tabacchi, blacklist, deb
                                  oggetto == "Carta, Bancomat" or not oggetto):
                 st.warning("Inserire l'oggetto corretto.")
             else:
-                now = datetime.now()
+                timezone = pytz.timezone("Europe/Rome")
+                now = datetime.now(tz=timezone)
                 if str(date) == current_date:
                     time = now.strftime("%H:%M")
                     total, lista_tabacchi = update_debt_list(name.lower(), debiti, "tabacchi", lista_tabacchi)

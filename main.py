@@ -3,7 +3,8 @@ from streamlit_option_menu import option_menu
 import locale
 from functions import *
 
-now = datetime.now()
+timezone = pytz.timezone('Europe/Rome')
+now = datetime.now(tz=timezone)
 current_date = now.strftime("%Y-%m-%d")
 if not check_file_exists(f"date/tabacchi/{current_date}.csv"):
     debt_list = pd.DataFrame(columns=["nome", "debiti", "pagati", "oggetto", "ore"])
@@ -46,7 +47,8 @@ if st.session_state["authentication_status"]:
         st.sidebar.title("Conto: Mirko")
         row = st.columns([0.1, 0.9])
         locale.setlocale(locale.LC_ALL, "it_IT")
-        today = datetime.now().strftime("%A, %d %B %Y")
+        timezone = pytz.timezone("Europe/Rome")
+        today = datetime.now(tz=timezone).strftime("%A, %d %B %Y")
         row[1].title(today.capitalize())
         authenticator.logout("Logout", "sidebar")
         nav_menu = option_menu(
@@ -63,7 +65,8 @@ if st.session_state["authentication_status"]:
         st.sidebar.title("Conto: Tabacchi")
         row = st.columns([0.1, 0.9])
         locale.setlocale(locale.LC_ALL, "it_IT")
-        today = datetime.now().strftime("%A, %d %B %Y")
+        timezone = pytz.timezone("Europe/Rome")
+        today = datetime.now(tz=timezone).strftime("%A, %d %B %Y")
         row[1].title(today.capitalize())
         authenticator.logout("Logout", "sidebar")
         nav_menu = option_menu(
